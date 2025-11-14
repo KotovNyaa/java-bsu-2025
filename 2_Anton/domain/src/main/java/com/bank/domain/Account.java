@@ -12,12 +12,16 @@ public class Account {
     private BigDecimal balance;
     private AccountStatus status;
 
-    public Account(UUID id, BigDecimal initialBalance) {
+    public Account(UUID id, BigDecimal balance, AccountStatus status) {
         this.id = id;
-        this.balance = initialBalance;
-        this.status = AccountStatus.ACTIVE;
+        this.balance = balance;
+        this.status = status;
     }
 
+    public Account(UUID id, BigDecimal balance) {
+        this(id, balance, AccountStatus.ACTIVE);
+    }
+    
     public void deposit(BigDecimal amount) {
         this.balance = this.balance.add(amount);
     }
@@ -34,8 +38,16 @@ public class Account {
         this.status = AccountStatus.ACTIVE;
     }
     
+    public void close() {
+        this.status = AccountStatus.CLOSED;
+    }
+    
     public UUID getId() {
         return id;
+    }
+
+    public void setStatus(AccountStatus status) { 
+        this.status = status; 
     }
 
     public BigDecimal getBalance() {

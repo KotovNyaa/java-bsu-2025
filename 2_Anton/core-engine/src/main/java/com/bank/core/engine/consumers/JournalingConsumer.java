@@ -18,7 +18,11 @@ public class JournalingConsumer implements EventHandler<TransactionEvent> {
 
     @Override
     public void onEvent(TransactionEvent event, long sequence, boolean endOfBatch) throws Exception {
-        // journalingService.write(event.getCommand());
-        // System.out.println("Journaled event on sequence: " + sequence);
+        try{
+            // journalingService.write(event.getCommand());
+            // System.out.println("Journaled event on sequence: " + sequence);
+        } finally {
+            event.clear();
+        }
     }
 }

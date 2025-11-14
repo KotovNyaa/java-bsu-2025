@@ -18,7 +18,11 @@ public class ReplicationConsumer implements EventHandler<TransactionEvent> {
 
     @Override
     public void onEvent(TransactionEvent event, long sequence, boolean endOfBatch) throws Exception {
-        // replicationService.replicate(event.getCommand());
-        // System.out.println("Replicated event on sequence: " + sequence);
+        try{
+            // replicationService.replicate(event.getCommand());
+            // System.out.println("Replicated event on sequence: " + sequence);
+        } finally {
+            event.clear();
+        }
     }
 }

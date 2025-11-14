@@ -3,12 +3,19 @@ package com.bank.persistence.repository.impl;
 import com.bank.core.command.TransactionCommand;
 import com.bank.core.port.out.JournalingService;
 import com.bank.persistence.exception.DataAccessException;
+import com.bank.core.command.ActionType;
+import java.util.ArrayList;  
+import java.util.List; 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import javax.sql.DataSource;
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.UUID;
 
 /**
  * JournalRepository для регестрации команд транзакции в БД
@@ -43,4 +50,33 @@ public final class JdbcJournalRepository implements JournalingService {
             throw new DataAccessException("Fatal: Failed to write command to journal. Transaction ID: " + command.getTransactionId(), e);
         }
     }
-}
+
+    public List<TransactionCommand> loadAllJournalEntries() {
+    final String SQL = "SELECT * FROM transaction_journal ORDER BY timestamp ASC";
+    List<TransactionCommand> commands = new ArrayList<>();
+
+    try (Connection conn = dataSource.getConnection();
+         Statement stmt = conn.createStatement();
+         ResultSet rs = stmt.executeQuery(SQL)) {
+
+        while (rs.next()) {
+            UUID transactionId = rs.getObject("transaction_id", UUID.class);
+            ActionType type = ActionType.valueOf(rs.getString("command_type"));
+            UUID accountId = rs.getObject("account_id_from", UUID.class);
+            UUID targetAccountId = rs.getObject("account_id_to", UUID.class);
+            BigDecimal amount = rs.getBigDecimal("amount");
+
+            TransactionCommand command = new TransactionCommand(
+                transactionId,
+                accountId,
+                type,
+                amount,
+                targetAccountId
+            );
+            commands.add(command);
+        }
+    } catch (SQLException e) {
+        throw new DataAccessException("Failed to load transaction journal", e);
+    }
+    return commands;
+}}

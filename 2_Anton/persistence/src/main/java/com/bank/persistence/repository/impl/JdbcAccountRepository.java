@@ -4,6 +4,8 @@ import com.bank.domain.Account;
 import com.bank.persistence.exception.DataAccessException;
 import com.bank.persistence.mapper.AccountMapper;
 import com.bank.persistence.repository.AccountRepository;
+
+import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -11,7 +13,6 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import javax.sql.DataSource;
 
 /**
  * Интерфейс AccountRepository на базе JDBC
@@ -20,9 +21,11 @@ import javax.sql.DataSource;
 public final class JdbcAccountRepository implements AccountRepository {
 
     private final DataSource dataSource;
+    private final AccountMapper accountMapper;
 
     public JdbcAccountRepository(DataSource dataSource) {
         this.dataSource = dataSource;
+        this.accountMapper = new AccountMapper();
     }
 
     @Override
@@ -35,7 +38,7 @@ public final class JdbcAccountRepository implements AccountRepository {
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                Account account = AccountMapper.mapRow(rs);
+                Account account = accountMapper.mapRow(rs);
                 accounts.put(account.getId(), account);
             }
         } catch (SQLException e) {

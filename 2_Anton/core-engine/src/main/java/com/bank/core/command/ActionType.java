@@ -8,5 +8,7 @@ public enum ActionType {
     DEPOSIT,
     WITHDRAW,
     FREEZE,
-    TRANSFER
+    TRANSFER,
+    UNFREEZE,
+    CLOSE 
 }

@@ -39,7 +39,6 @@ class JdbcAccountRepositoryTest {
     }
 
     @Test
-    @DisplayName("loadAllAccounts should return all accounts from the database")
     void loadAllAccounts_should_return_all_accounts() throws Exception {
         UUID id1 = UUID.randomUUID();
         UUID id2 = UUID.randomUUID();
@@ -77,10 +76,34 @@ class JdbcAccountRepositoryTest {
     }
 
     @Test
-    @DisplayName("loadAllAccounts should return an empty map if no accounts exist")
     void loadAllAccounts_should_return_empty_map() {
         Map<UUID, Account> accounts = repository.loadAllAccounts();
         assertNotNull(accounts);
         assertTrue(accounts.isEmpty());
+    }
+
+    @Test
+    void should_load_account_with_correct_frozen_status() throws Exception {
+        UUID frozenAccountId = UUID.randomUUID();
+        BigDecimal balance = new BigDecimal("1000.00");
+        String insertSql = "INSERT INTO accounts (id, balance, status) VALUES (?, ?, ?)";
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(insertSql)) {
+            ps.setObject(1, frozenAccountId);
+            ps.setBigDecimal(2, balance);
+            ps.setString(3, "FROZEN");
+            ps.executeUpdate();
+        }
+
+        Map<UUID, Account> accounts = repository.loadAllAccounts();
+
+        assertNotNull(accounts.get(frozenAccountId), "Счет не был загружен");
+        assertEquals(
+            AccountStatus.FROZEN,
+            accounts.get(frozenAccountId).getStatus(),
+            "Статус счета должен быть FROZEN, а не ACTIVE по умолчанию"
+        );
+        assertEquals(0, balance.compareTo(accounts.get(frozenAccountId).getBalance()));
     }
 }

@@ -7,7 +7,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import com.bank.core.command.ActionType;
 
+import java.util.List;
 import javax.sql.DataSource;
 import java.io.FileReader;
 import java.math.BigDecimal;
@@ -43,7 +45,6 @@ class JdbcJournalRepositoryTest {
     }
 
     @Test
-    @DisplayName("log should insert a correct record for a transfer command")
     void log_should_insert_correct_record_for_transfer() throws Exception {
         UUID fromId = UUID.randomUUID();
         UUID toId = UUID.randomUUID();
@@ -65,7 +66,6 @@ class JdbcJournalRepositoryTest {
     }
 
     @Test
-    @DisplayName("log should handle null account_id_to for deposit commands")
     void log_should_handle_null_account_id_to() throws Exception {
         TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), new BigDecimal("500"));
         
@@ -82,7 +82,6 @@ class JdbcJournalRepositoryTest {
     }
 
     @Test
-    @DisplayName("log should throw DataAccessException on SQL error")
     void log_should_throw_DataAccessException_on_sql_error() throws SQLException {
         DataSource failingDataSource = Mockito.mock(DataSource.class);
         when(failingDataSource.getConnection()).thenThrow(new SQLException("Simulated database connection error"));
@@ -94,5 +93,36 @@ class JdbcJournalRepositoryTest {
         assertThrows(DataAccessException.class, () -> {
             failingRepository.log(command);
         }, "A database failure should be wrapped in a DataAccessException");
+    }
+
+    @Test
+    void should_load_all_journal_entries_in_chronological_order() throws InterruptedException {
+        UUID account1 = UUID.randomUUID();
+        UUID account2 = UUID.randomUUID();
+
+        TransactionCommand depositCommand = TransactionCommand.createDepositCommand(account1, new BigDecimal("500.00"));
+        Thread.sleep(10);
+        TransactionCommand transferCommand = TransactionCommand.createTransferCommand(account1, account2, new BigDecimal("150.00"));
+
+        journalRepository.log(depositCommand);
+        journalRepository.log(transferCommand);
+
+        List<TransactionCommand> loadedCommands = journalRepository.loadAllJournalEntries();
+
+        assertNotNull(loadedCommands);
+        assertEquals(2, loadedCommands.size(), "Должны быть загружены обе команды");
+
+        TransactionCommand loadedDeposit = loadedCommands.get(0);
+        assertEquals(depositCommand.getTransactionId(), loadedDeposit.getTransactionId());
+        assertEquals(ActionType.DEPOSIT, loadedDeposit.getActionType());
+        assertEquals(account1, loadedDeposit.getAccountId());
+        assertEquals(0, new BigDecimal("500.00").compareTo(loadedDeposit.getAmount()));
+
+        TransactionCommand loadedTransfer = loadedCommands.get(1);
+        assertEquals(transferCommand.getTransactionId(), loadedTransfer.getTransactionId());
+        assertEquals(ActionType.TRANSFER, loadedTransfer.getActionType());
+        assertEquals(account1, loadedTransfer.getAccountId());
+        assertEquals(account2, loadedTransfer.getTargetAccountId());
+        assertEquals(0, new BigDecimal("150.00").compareTo(loadedTransfer.getAmount()));
     }
 }

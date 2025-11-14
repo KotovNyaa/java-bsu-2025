@@ -7,7 +7,6 @@ import com.bank.persistence.repository.impl.JdbcAccountRepository;
 import com.bank.persistence.repository.impl.JdbcJournalRepository;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.FileReader;
@@ -38,7 +37,8 @@ class CorePersistenceIntegrationTest {
 
         try (Connection conn = dataSource.getConnection()) {
             java.net.URL resource = getClass().getClassLoader().getResource("schema.sql");
-            if (resource == null) throw new IllegalStateException("Cannot find schema.sql");
+            if (resource == null)
+                throw new IllegalStateException("Cannot find schema.sql");
             org.h2.tools.RunScript.execute(conn, new FileReader(resource.getFile()));
         }
 
@@ -47,7 +47,6 @@ class CorePersistenceIntegrationTest {
     }
 
     @Test
-    @DisplayName("should correctly restore state from journal after a simulated crash")
     void should_correctly_restore_state_from_journal_after_simulated_crash() throws Exception {
         UUID accountId1 = UUID.randomUUID();
         UUID accountId2 = UUID.randomUUID();
@@ -61,7 +60,7 @@ class CorePersistenceIntegrationTest {
                 stmt.setObject(1, accountId1);
                 stmt.setBigDecimal(2, new BigDecimal("1000"));
                 stmt.executeUpdate();
-                
+
                 stmt.setObject(1, accountId2);
                 stmt.setBigDecimal(2, new BigDecimal("500"));
                 stmt.executeUpdate();
@@ -70,8 +69,9 @@ class CorePersistenceIntegrationTest {
 
         TransactionCommand deposit = TransactionCommand.createDepositCommand(accountId1, new BigDecimal("200"));
         TransactionCommand withdraw = TransactionCommand.createWithdrawCommand(accountId2, new BigDecimal("100"));
-        TransactionCommand transfer = TransactionCommand.createTransferCommand(accountId1, accountId2, new BigDecimal("300"));
-        
+        TransactionCommand transfer = TransactionCommand.createTransferCommand(accountId1, accountId2,
+                new BigDecimal("300"));
+
         journalRepository.log(deposit);
         journalRepository.log(withdraw);
         journalRepository.log(transfer);
@@ -80,19 +80,19 @@ class CorePersistenceIntegrationTest {
         assertNotNull(recoveredState);
         assertEquals(2, recoveredState.size());
         assertEquals(0, new BigDecimal("1000").compareTo(recoveredState.get(accountId1).getBalance()));
-        
+
         try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM transaction_journal ORDER BY sequence_id ASC")) {
-            
-            while(rs.next()) {
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT * FROM transaction_journal ORDER BY sequence_id ASC")) {
+
+            while (rs.next()) {
                 ActionType type = ActionType.valueOf(rs.getString("command_type"));
                 UUID fromId = rs.getObject("account_id_from", UUID.class);
                 UUID toId = rs.getObject("account_id_to", UUID.class);
                 BigDecimal amount = rs.getBigDecimal("amount");
 
                 Account sourceAccount = recoveredState.get(fromId);
-                
+
                 switch (type) {
                     case DEPOSIT:
                         sourceAccount.deposit(amount);
@@ -109,7 +109,9 @@ class CorePersistenceIntegrationTest {
             }
         }
 
-        assertEquals(0, new BigDecimal("900").compareTo(recoveredState.get(accountId1).getBalance()), "Balance of account 1 is incorrect after recovery");
-        assertEquals(0, new BigDecimal("700").compareTo(recoveredState.get(accountId2).getBalance()), "Balance of account 2 is incorrect after recovery");
+        assertEquals(0, new BigDecimal("900").compareTo(recoveredState.get(accountId1).getBalance()),
+                "Balance of account 1 is incorrect after recovery");
+        assertEquals(0, new BigDecimal("700").compareTo(recoveredState.get(accountId2).getBalance()),
+                "Balance of account 2 is incorrect after recovery");
     }
 }

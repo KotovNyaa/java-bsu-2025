@@ -13,6 +13,7 @@ import com.bank.core.engine.consumers.ReplicationConsumer;
 /**
  * Центральный класс-оркестратор, который настраивает и запускает конвейер обработки LMAX Disruptor.
  */
+
 public class TransactionRingBuffer {
 
     private final Disruptor<TransactionEvent> disruptor;
@@ -26,14 +27,12 @@ public class TransactionRingBuffer {
 
         this.disruptor = new Disruptor<>(
                 TransactionEvent.EVENT_FACTORY,
-                1024 * 16, // Ring Buffer Size
+                1024 * 16,
                 DaemonThreadFactory.INSTANCE,
-                ProducerType.MULTI, // Assuming multiple threads can publish
+                ProducerType.MULTI,
                 waitStrategy
         );
 
-        // Сначала команда параллельно пишется в журнал и отправляется реплике.
-        // Только после успешного завершения ОБЕИХ операций, она попадает в бизнес-логику.
         this.disruptor
                 .handleEventsWith(journalingConsumer, replicationConsumer)
                 .then(businessLogicConsumer);
