@@ -22,7 +22,10 @@ class CloseActionTest {
     @Test
     void should_call_close_method_on_account_when_executed() {
         CloseAction closeAction = new CloseAction();
-        TransactionCommand command = TransactionCommand.createCloseCommand(UUID.randomUUID());
+        UUID idempotencyKey = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+
+        TransactionCommand command = TransactionCommand.createCloseCommand(idempotencyKey, accountId);
 
         closeAction.execute(account, command);
 

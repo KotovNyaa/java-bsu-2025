@@ -21,6 +21,12 @@ public class Account {
     public Account(UUID id, BigDecimal balance) {
         this(id, balance, AccountStatus.ACTIVE);
     }
+
+    public Account(Account other) {
+        this.id = other.id;
+        this.balance = other.balance;
+        this.status = other.status;
+    }
     
     public void deposit(BigDecimal amount) {
         this.balance = this.balance.add(amount);

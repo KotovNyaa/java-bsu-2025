@@ -10,6 +10,7 @@ import com.lmax.disruptor.EventFactory;
 public final class TransactionEvent {
 
     private TransactionCommand command;
+    private boolean shouldProcess = true; 
 
     public TransactionCommand getCommand() {
         return command;
@@ -19,8 +20,17 @@ public final class TransactionEvent {
         this.command = command;
     }
 
+    public boolean shouldProcess() {
+        return shouldProcess;
+    }
+
+    public void setShouldProcess(boolean shouldProcess) {
+        this.shouldProcess = shouldProcess;
+    }
+
     public void clear() {
         this.command = null;
+        this.shouldProcess = true; 
     }
 
     public static final EventFactory<TransactionEvent> EVENT_FACTORY = TransactionEvent::new;

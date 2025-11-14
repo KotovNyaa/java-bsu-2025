@@ -20,10 +20,12 @@ class UnfreezeActionTest {
     private Account account;
 
     @Test
-    @DisplayName("Должен вызывать метод activate() на счете при выполнении")
     void should_call_activate_method_on_account_when_executed() {
         UnfreezeAction unfreezeAction = new UnfreezeAction();
-        TransactionCommand command = TransactionCommand.createUnfreezeCommand(UUID.randomUUID());
+        UUID idempotencyKey = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+
+        TransactionCommand command = TransactionCommand.createUnfreezeCommand(idempotencyKey, accountId);
 
         unfreezeAction.execute(account, command);
 

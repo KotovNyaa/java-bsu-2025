@@ -16,13 +16,22 @@ public class ReplicationConsumer implements EventHandler<TransactionEvent> {
     //     this.replicationService = replicationService;
     // }
 
+    public ReplicationConsumer() {
+    }
+    
     @Override
     public void onEvent(TransactionEvent event, long sequence, boolean endOfBatch) throws Exception {
-        try{
-            // replicationService.replicate(event.getCommand());
-            // System.out.println("Replicated event on sequence: " + sequence);
-        } finally {
-            event.clear();
+        if (!event.shouldProcess()) {
+            return;
+        }
+
+        // replicationService.replicate(event.getCommand());
+        // System.out.println("Replicated command: " + event.getCommand().getTransactionId());
+    }
+
+    public static class NoOpReplicationConsumer extends ReplicationConsumer {
+        @Override
+        public void onEvent(TransactionEvent event, long sequence, boolean endOfBatch) {
         }
     }
 }

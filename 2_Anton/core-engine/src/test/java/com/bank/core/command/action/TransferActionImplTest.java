@@ -28,7 +28,7 @@ class TransferActionImplTest {
 
     @Test
     void execute_shouldWithdrawAndDepositOnSuccessfulTransfer() throws InsufficientFundsException {
-        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("100"));
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("100"));
         when(sourceAccount.getBalance()).thenReturn(new BigDecimal("200"));
         
         when(sourceAccount.getId()).thenReturn(UUID.randomUUID());
@@ -44,7 +44,7 @@ class TransferActionImplTest {
 
     @Test
     void execute_shouldBeAtomicAndThrowExceptionOnInsufficientFunds() {
-        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("300"));
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("300"));
         when(sourceAccount.getBalance()).thenReturn(new BigDecimal("200"));
 
         when(sourceAccount.getId()).thenReturn(UUID.randomUUID());
@@ -65,7 +65,7 @@ class TransferActionImplTest {
         UUID fromAccountId = UUID.randomUUID();
         UUID toAccountId = UUID.randomUUID();
         TransactionCommand command = TransactionCommand.createTransferCommand(
-            fromAccountId, toAccountId, new BigDecimal("200")
+            UUID.randomUUID(), fromAccountId, toAccountId, new BigDecimal("200")
         );
 
         when(sourceAccount.getStatus()).thenReturn(AccountStatus.FROZEN);
@@ -87,7 +87,7 @@ class TransferActionImplTest {
     void should_throw_illegal_argument_exception_for_transfer_to_same_account() {
         UUID sameAccountId = UUID.randomUUID();
         TransactionCommand command = TransactionCommand.createTransferCommand(
-            sameAccountId, sameAccountId, new BigDecimal("100")
+            UUID.randomUUID(), sameAccountId, sameAccountId, new BigDecimal("100")
         );
         
         when(sourceAccount.getId()).thenReturn(sameAccountId);

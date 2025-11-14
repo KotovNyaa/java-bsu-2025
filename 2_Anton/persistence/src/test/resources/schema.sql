@@ -9,6 +9,7 @@ CREATE TABLE accounts (
 
 CREATE TABLE transaction_journal (
     sequence_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idempotency_key UUID,
     transaction_id UUID NOT NULL,
     timestamp TIMESTAMP NOT NULL,
     command_type VARCHAR(50) NOT NULL,

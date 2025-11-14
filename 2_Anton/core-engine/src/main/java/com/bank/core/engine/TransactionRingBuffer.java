@@ -11,7 +11,7 @@ import com.bank.core.engine.consumers.JournalingConsumer;
 import com.bank.core.engine.consumers.ReplicationConsumer;
 
 /**
- * Центральный класс-оркестратор, который настраивает и запускает конвейер обработки LMAX Disruptor.
+ * Центральный класс, который настраивает и запускает конвейер
  */
 
 public class TransactionRingBuffer {
@@ -26,16 +26,11 @@ public class TransactionRingBuffer {
             BusinessLogicConsumer businessLogicConsumer) {
 
         this.disruptor = new Disruptor<>(
-                TransactionEvent.EVENT_FACTORY,
+                TransactionEvent::new,
                 1024 * 16,
                 DaemonThreadFactory.INSTANCE,
                 ProducerType.MULTI,
-                waitStrategy
-        );
-
-        this.disruptor
-                .handleEventsWith(journalingConsumer, replicationConsumer)
-                .then(businessLogicConsumer);
+                waitStrategy);
 
         this.ringBuffer = disruptor.getRingBuffer();
     }
@@ -50,5 +45,9 @@ public class TransactionRingBuffer {
 
     public RingBuffer<TransactionEvent> getRingBuffer() {
         return ringBuffer;
+    }
+
+    public Disruptor<TransactionEvent> getDisruptor() {
+        return disruptor;
     }
 }

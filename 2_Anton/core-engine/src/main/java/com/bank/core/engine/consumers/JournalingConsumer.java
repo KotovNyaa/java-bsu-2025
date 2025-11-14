@@ -13,16 +13,20 @@ public class JournalingConsumer implements EventHandler<TransactionEvent> {
     // private final JournalingService journalingService;
 
     // public JournalingConsumer(JournalingService journalingService) {
-    //     this.journalingService = journalingService;
+    // this.journalingService = journalingService;
     // }
+
+    public JournalingConsumer() {
+    }
 
     @Override
     public void onEvent(TransactionEvent event, long sequence, boolean endOfBatch) throws Exception {
-        try{
-            // journalingService.write(event.getCommand());
-            // System.out.println("Journaled event on sequence: " + sequence);
-        } finally {
-            event.clear();
+        if (!event.shouldProcess()) {
+            return;
         }
+
+        // journalingService.log(event.getCommand());
+        // System.out.println("Journaled command: " +
+        // event.getCommand().getTransactionId());
     }
 }

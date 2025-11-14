@@ -43,7 +43,7 @@ class BusinessLogicConsumerTest {
 
     @Test
     void onEvent_shouldUseSingleAccountActionForDeposit() throws Exception {
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
         event.setCommand(command);
 
         when(actionFactory.getSingleAccountAction(ActionType.DEPOSIT)).thenReturn(singleAccountAction);
@@ -60,7 +60,7 @@ class BusinessLogicConsumerTest {
     void onEvent_shouldUseTransferActionForTransfer() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
-        TransactionCommand command = TransactionCommand.createTransferCommand(sourceId, targetId, BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), sourceId, targetId, BigDecimal.TEN);
         event.setCommand(command);
 
         when(actionFactory.getTransferAction()).thenReturn(transferAction);
@@ -76,7 +76,7 @@ class BusinessLogicConsumerTest {
 
     @Test
     void onEvent_shouldNotThrowRuntimeExceptionOnBusinessException() throws Exception {
-        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
         event.setCommand(command);
 
         when(actionFactory.getSingleAccountAction(any())).thenReturn(singleAccountAction);
@@ -88,7 +88,7 @@ class BusinessLogicConsumerTest {
 
     @Test
     void onEvent_shouldThrowRuntimeExceptionOnUnexpectedError() throws Exception {
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
         event.setCommand(command);
         
         when(actionFactory.getSingleAccountAction(any())).thenReturn(singleAccountAction);

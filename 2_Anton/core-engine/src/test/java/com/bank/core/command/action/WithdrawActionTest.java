@@ -26,7 +26,9 @@ class WithdrawActionTest {
 
     @Test
     void execute_shouldCallWithdrawWhenFundsAreSufficient() throws InsufficientFundsException {
-        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), new BigDecimal("50"));
+        TransactionCommand command = TransactionCommand.createWithdrawCommand(
+            UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("50")
+        );
         when(account.getBalance()).thenReturn(new BigDecimal("100"));
         when(account.getStatus()).thenReturn(AccountStatus.ACTIVE);
 
@@ -37,7 +39,7 @@ class WithdrawActionTest {
 
     @Test
     void execute_shouldThrowExceptionAndNotCallWithdrawWhenFundsAreInsufficient() {
-        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), new BigDecimal("150"));
+        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("150"));
         when(account.getBalance()).thenReturn(new BigDecimal("100"));
         when(account.getStatus()).thenReturn(AccountStatus.ACTIVE);
         
@@ -51,7 +53,7 @@ class WithdrawActionTest {
     @Test
     void should_throw_exception_when_attempting_to_withdraw_from_frozen_account() {
         UUID accountId = UUID.randomUUID();
-        TransactionCommand command = TransactionCommand.createWithdrawCommand(accountId, new BigDecimal("100"));
+        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), accountId, new BigDecimal("100"));
 
         when(account.getStatus()).thenReturn(AccountStatus.FROZEN);
 
@@ -67,7 +69,7 @@ class WithdrawActionTest {
     @Test
     void should_throw_illegal_argument_exception_for_negative_amount() {
         TransactionCommand command = TransactionCommand.createWithdrawCommand(
-            UUID.randomUUID(), new BigDecimal("-100")
+            UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("-100")
         );
 
         assertThrows(

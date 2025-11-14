@@ -28,6 +28,9 @@ public class BusinessLogicConsumer implements EventHandler<TransactionEvent> {
 
     @Override
     public void onEvent(TransactionEvent event, long sequence, boolean endOfBatch) {
+        if (!event.shouldProcess()) {
+            return;
+        }
         try {
             TransactionCommand command = event.getCommand();
             ActionType type = command.getActionType();

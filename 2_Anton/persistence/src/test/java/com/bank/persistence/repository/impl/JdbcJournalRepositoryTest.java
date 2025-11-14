@@ -48,7 +48,7 @@ class JdbcJournalRepositoryTest {
     void log_should_insert_correct_record_for_transfer() throws Exception {
         UUID fromId = UUID.randomUUID();
         UUID toId = UUID.randomUUID();
-        TransactionCommand command = TransactionCommand.createTransferCommand(fromId, toId, new BigDecimal("99.99"));
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), fromId, toId, new BigDecimal("99.99"));
 
         journalRepository.log(command);
 
@@ -67,7 +67,7 @@ class JdbcJournalRepositoryTest {
 
     @Test
     void log_should_handle_null_account_id_to() throws Exception {
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), new BigDecimal("500"));
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("500"));
         
         journalRepository.log(command);
 
@@ -88,7 +88,7 @@ class JdbcJournalRepositoryTest {
         
         JdbcJournalRepository failingRepository = new JdbcJournalRepository(failingDataSource);
         
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
 
         assertThrows(DataAccessException.class, () -> {
             failingRepository.log(command);
@@ -100,9 +100,9 @@ class JdbcJournalRepositoryTest {
         UUID account1 = UUID.randomUUID();
         UUID account2 = UUID.randomUUID();
 
-        TransactionCommand depositCommand = TransactionCommand.createDepositCommand(account1, new BigDecimal("500.00"));
+        TransactionCommand depositCommand = TransactionCommand.createDepositCommand(UUID.randomUUID(), account1, new BigDecimal("500.00"));
         Thread.sleep(10);
-        TransactionCommand transferCommand = TransactionCommand.createTransferCommand(account1, account2, new BigDecimal("150.00"));
+        TransactionCommand transferCommand = TransactionCommand.createTransferCommand(UUID.randomUUID(), account1, account2, new BigDecimal("150.00"));
 
         journalRepository.log(depositCommand);
         journalRepository.log(transferCommand);
