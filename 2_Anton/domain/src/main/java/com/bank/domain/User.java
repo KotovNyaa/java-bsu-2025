@@ -1,4 +1,4 @@
-package com.bank.core.domain;
+package com.bank.domain;
 
 import java.util.List;
 import java.util.UUID;

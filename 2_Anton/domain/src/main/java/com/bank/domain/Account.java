@@ -1,4 +1,4 @@
-package com.bank.core.domain;
+package com.bank.domain;
 
 import java.math.BigDecimal;
 import java.util.UUID;

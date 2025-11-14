@@ -1,6 +1,6 @@
 package com.bank.core.state;
 
-import com.bank.core.domain.Account;
+import com.bank.domain.Account;
 import com.bank.core.exception.AccountNotFoundException;
 
 import java.util.Map;

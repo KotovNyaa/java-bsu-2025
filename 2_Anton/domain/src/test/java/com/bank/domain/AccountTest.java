@@ -1,4 +1,4 @@
-package com.bank.core.domain;
+package com.bank.domain;
 
 import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;

@@ -5,7 +5,7 @@ import com.bank.core.command.TransactionCommand;
 import com.bank.core.command.action.SingleAccountAction;
 import com.bank.core.command.action.TransferAction;
 import com.bank.core.command.factory.TransactionActionFactory;
-import com.bank.core.domain.Account;
+import com.bank.domain.Account;
 import com.bank.core.engine.TransactionEvent;
 import com.bank.core.exception.AccountNotFoundException;
 import com.bank.core.exception.InsufficientFundsException;
