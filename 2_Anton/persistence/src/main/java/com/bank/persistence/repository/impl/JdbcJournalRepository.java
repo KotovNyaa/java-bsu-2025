@@ -1,0 +1,46 @@
+package com.bank.persistence.repository.impl;
+
+import com.bank.core.command.TransactionCommand;
+import com.bank.core.port.out.JournalingService;
+import com.bank.persistence.exception.DataAccessException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
+import javax.sql.DataSource;
+
+/**
+ * JournalRepository для регестрации команд транзакции в БД
+ */
+
+public final class JdbcJournalRepository implements JournalingService {
+
+    private final DataSource dataSource;
+
+    public JdbcJournalRepository(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    @Override
+    public void log(TransactionCommand command) {
+        final String sql = "INSERT INTO transaction_journal " +
+                           "(transaction_id, timestamp, command_type, account_id_from, account_id_to, amount) " +
+                           "VALUES (?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setObject(1, command.getTransactionId());
+            stmt.setTimestamp(2, Timestamp.from(Instant.now()));
+            stmt.setString(3, command.getActionType().name());
+            stmt.setObject(4, command.getAccountId());
+            stmt.setObject(5, command.getTargetAccountId());
+            stmt.setBigDecimal(6, command.getAmount());
+
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new DataAccessException("Fatal: Failed to write command to journal. Transaction ID: " + command.getTransactionId(), e);
+        }
+    }
+}

@@ -12,6 +12,7 @@
     <modules>
         <module>core-engine</module>
         <module>domain</module>
+        <module>persistence</module>
     </modules>
 
     <properties>
@@ -21,14 +22,36 @@
         <junit.jupiter.version>5.9.1</junit.jupiter.version>
         <mockito.version>4.8.1</mockito.version>
         <disruptor.version>3.4.4</disruptor.version>
+        <spring.boot.version>2.7.5</spring.boot.version>
+        <postgresql.version>42.7.3</postgresql.version>
+        <h2.version>2.2.224</h2.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>com.lmax</groupId>
                 <artifactId>disruptor</artifactId>
                 <version>${disruptor.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <version>${h2.version}</version>
             </dependency>
 
             <dependency>
