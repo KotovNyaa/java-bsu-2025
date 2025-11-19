@@ -1,94 +1,93 @@
 package com.bank.persistence.repository.impl;
 
+import com.bank.core.command.ActionType;
 import com.bank.core.command.TransactionCommand;
 import com.bank.persistence.exception.DataAccessException;
-import org.h2.jdbcx.JdbcDataSource;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
-import com.bank.core.command.ActionType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
-import java.util.List;
 import javax.sql.DataSource;
-import java.io.FileReader;
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class JdbcJournalRepositoryTest {
 
-    private JdbcDataSource dataSource;
+    private EmbeddedDatabase dataSource;
+    private JdbcTemplate jdbcTemplate;
     private JdbcJournalRepository journalRepository;
 
-    @BeforeEach
-    void setUp() throws Exception {
-        dataSource = new JdbcDataSource();
-        dataSource.setURL("jdbc:h2:mem:journaldb;DB_CLOSE_DELAY=-1;");
-        dataSource.setUser("sa");
-        dataSource.setPassword("sa");
+    @BeforeAll
+    void setupDatabase() {
+        this.dataSource = new EmbeddedDatabaseBuilder()
+                .setType(EmbeddedDatabaseType.H2)
+                .setName("journaldb_test;MODE=PostgreSQL;DATABASE_TO_UPPER=false")
+                .addScript("classpath:schema.sql")
+                .build();
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.journalRepository = new JdbcJournalRepository(dataSource);
+    }
 
-        try (Connection conn = dataSource.getConnection()) {
-            java.net.URL resource = getClass().getClassLoader().getResource("schema.sql");
-            if (resource == null) throw new IllegalStateException("Cannot find schema.sql");
-            org.h2.tools.RunScript.execute(conn, new FileReader(resource.getFile()));
+    @AfterAll
+    void shutdownDatabase() {
+        if (this.dataSource != null) {
+            this.dataSource.shutdown();
         }
+    }
 
-        journalRepository = new JdbcJournalRepository(dataSource);
+    @BeforeEach
+    void cleanTables() {
+        jdbcTemplate.execute("TRUNCATE TABLE \"transaction_journal\"");
     }
 
     @Test
-    void log_should_insert_correct_record_for_transfer() throws Exception {
+    void log_should_insert_correct_record_for_transfer() {
         UUID fromId = UUID.randomUUID();
         UUID toId = UUID.randomUUID();
-        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), fromId, toId, new BigDecimal("99.99"));
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), fromId, toId,
+                new BigDecimal("99.99"));
 
         journalRepository.log(command);
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement("SELECT * FROM transaction_journal WHERE transaction_id = ?")) {
-            stmt.setObject(1, command.getTransactionId());
-            try (ResultSet rs = stmt.executeQuery()) {
-                assertTrue(rs.next(), "A record for the transaction should exist in the journal");
-                assertEquals(fromId, rs.getObject("account_id_from", UUID.class));
-                assertEquals(toId, rs.getObject("account_id_to", UUID.class));
-                assertEquals("TRANSFER", rs.getString("command_type"));
-                assertEquals(0, new BigDecimal("99.99").compareTo(rs.getBigDecimal("amount")));
-            }
-        }
+        jdbcTemplate.query("SELECT * FROM \"transaction_journal\" WHERE \"transaction_id\" = ?", rs -> {
+            assertThat(rs.getObject("account_id_from", UUID.class)).isEqualTo(fromId);
+            assertThat(rs.getObject("account_id_to", UUID.class)).isEqualTo(toId);
+            assertThat(rs.getString("command_type")).isEqualTo("TRANSFER");
+            assertThat(rs.getBigDecimal("amount")).isEqualByComparingTo("99.99");
+        }, command.getTransactionId());
     }
 
     @Test
-    void log_should_handle_null_account_id_to() throws Exception {
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("500"));
-        
+    void log_should_handle_null_account_id_to() {
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("500"));
+
         journalRepository.log(command);
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement("SELECT account_id_to FROM transaction_journal WHERE transaction_id = ?")) {
-            stmt.setObject(1, command.getTransactionId());
-            try (ResultSet rs = stmt.executeQuery()) {
-                assertTrue(rs.next(), "Record should exist");
-                assertNull(rs.getObject("account_id_to"), "account_id_to should be null for deposit");
-            }
-        }
+        UUID accountIdTo = jdbcTemplate.queryForObject(
+                "SELECT \"account_id_to\" FROM \"transaction_journal\" WHERE \"transaction_id\" = ?",
+                UUID.class,
+                command.getTransactionId());
+        assertThat(accountIdTo).isNull();
     }
 
     @Test
     void log_should_throw_DataAccessException_on_sql_error() throws SQLException {
         DataSource failingDataSource = Mockito.mock(DataSource.class);
         when(failingDataSource.getConnection()).thenThrow(new SQLException("Simulated database connection error"));
-        
         JdbcJournalRepository failingRepository = new JdbcJournalRepository(failingDataSource);
-        
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(),
+                BigDecimal.TEN);
 
         assertThrows(DataAccessException.class, () -> {
             failingRepository.log(command);
@@ -100,29 +99,30 @@ class JdbcJournalRepositoryTest {
         UUID account1 = UUID.randomUUID();
         UUID account2 = UUID.randomUUID();
 
-        TransactionCommand depositCommand = TransactionCommand.createDepositCommand(UUID.randomUUID(), account1, new BigDecimal("500.00"));
+        TransactionCommand depositCommand = TransactionCommand.createDepositCommand(UUID.randomUUID(), account1,
+                new BigDecimal("500.00"));
         Thread.sleep(10);
-        TransactionCommand transferCommand = TransactionCommand.createTransferCommand(UUID.randomUUID(), account1, account2, new BigDecimal("150.00"));
+        TransactionCommand transferCommand = TransactionCommand.createTransferCommand(UUID.randomUUID(), account1,
+                account2, new BigDecimal("150.00"));
 
         journalRepository.log(depositCommand);
         journalRepository.log(transferCommand);
 
         List<TransactionCommand> loadedCommands = journalRepository.loadAllJournalEntries();
 
-        assertNotNull(loadedCommands);
-        assertEquals(2, loadedCommands.size(), "Должны быть загружены обе команды");
+        assertThat(loadedCommands).isNotNull().hasSize(2);
 
         TransactionCommand loadedDeposit = loadedCommands.get(0);
-        assertEquals(depositCommand.getTransactionId(), loadedDeposit.getTransactionId());
-        assertEquals(ActionType.DEPOSIT, loadedDeposit.getActionType());
-        assertEquals(account1, loadedDeposit.getAccountId());
-        assertEquals(0, new BigDecimal("500.00").compareTo(loadedDeposit.getAmount()));
+        assertThat(loadedDeposit.getTransactionId()).isEqualTo(depositCommand.getTransactionId());
+        assertThat(loadedDeposit.getActionType()).isEqualTo(ActionType.DEPOSIT);
+        assertThat(loadedDeposit.getAccountId()).isEqualTo(account1);
+        assertThat(loadedDeposit.getAmount()).isEqualByComparingTo("500.00");
 
         TransactionCommand loadedTransfer = loadedCommands.get(1);
-        assertEquals(transferCommand.getTransactionId(), loadedTransfer.getTransactionId());
-        assertEquals(ActionType.TRANSFER, loadedTransfer.getActionType());
-        assertEquals(account1, loadedTransfer.getAccountId());
-        assertEquals(account2, loadedTransfer.getTargetAccountId());
-        assertEquals(0, new BigDecimal("150.00").compareTo(loadedTransfer.getAmount()));
+        assertThat(loadedTransfer.getTransactionId()).isEqualTo(transferCommand.getTransactionId());
+        assertThat(loadedTransfer.getActionType()).isEqualTo(ActionType.TRANSFER);
+        assertThat(loadedTransfer.getAccountId()).isEqualTo(account1);
+        assertThat(loadedTransfer.getTargetAccountId()).isEqualTo(account2);
+        assertThat(loadedTransfer.getAmount()).isEqualByComparingTo("150.00");
     }
 }

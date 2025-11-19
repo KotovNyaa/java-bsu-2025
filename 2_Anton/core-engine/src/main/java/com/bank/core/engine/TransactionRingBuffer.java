@@ -5,7 +5,6 @@ import com.lmax.disruptor.WaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
-
 import com.bank.core.engine.consumers.BusinessLogicConsumer;
 import com.bank.core.engine.consumers.JournalingConsumer;
 import com.bank.core.engine.consumers.ReplicationConsumer;
@@ -31,6 +30,8 @@ public class TransactionRingBuffer {
                 DaemonThreadFactory.INSTANCE,
                 ProducerType.MULTI,
                 waitStrategy);
+
+        this.disruptor.setDefaultExceptionHandler(new Slf4jExceptionHandler());
 
         this.ringBuffer = disruptor.getRingBuffer();
     }

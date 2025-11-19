@@ -6,16 +6,13 @@ import com.bank.core.engine.TransactionEventProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
-/**
- * Асинхронный поллер с DLQ.
- */
+import java.util.concurrent.locks.LockSupport;
 
 public class OutboxPoller implements Runnable {
     private static final Logger log = LoggerFactory.getLogger(OutboxPoller.class);
-    static final int BATCH_SIZE = 100;
-    static final int MAX_FAILURES = 3;
+    static final int BATCH_SIZE = 256;
+    private static final long IDLE_SLEEP_NANOS = 1_000_000L;
+    private static final long ERROR_SLEEP_NANOS = 1_000_000_000L;
 
     private final TransactionalOutboxRepository outboxRepository;
     private final TransactionEventProducer producer;
@@ -28,55 +25,39 @@ public class OutboxPoller implements Runnable {
 
     @Override
     public void run() {
-        while (running) {
+        log.info("OutboxPoller started.");
+        while (running && !Thread.currentThread().isInterrupted()) {
             try {
+                final long startTime = System.nanoTime();
+
                 List<TransactionCommand> commands = outboxRepository.fetchAndLockUnprocessed(BATCH_SIZE);
-                if (commands.isEmpty()) {
-                    Thread.sleep(200);
-                    continue;
+
+                if (!commands.isEmpty()) {
+                    log.trace("Fetched {} commands from outbox. Publishing to Disruptor.", commands.size());
+                    producer.publishBatch(commands);
+                } else {
+                    LockSupport.parkNanos(IDLE_SLEEP_NANOS);
                 }
 
-                for (TransactionCommand command : commands) {
-                    CompletableFuture<Void> future = producer.publish(command);
-                    future.thenRun(() -> handleSuccess(command))
-                          .exceptionally(ex -> {
-                              handleFailure(command, ex);
-                              return null;
-                          });
+                final long elapsedTimeMs = (System.nanoTime() - startTime) / 1_000_000;
+                if (elapsedTimeMs > 500) {
+                    log.warn("OutboxPoller iteration took {} ms, processed {} commands.", elapsedTimeMs,
+                            commands.size());
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                running = false;
+
             } catch (Exception e) {
-                log.error("Unhandled exception in OutboxPoller loop.", e);
-                try { Thread.sleep(1000); } catch (InterruptedException ie) { running = false; }
+                log.error("Unhandled exception in OutboxPoller loop. Will retry after a short delay.", e);
+                LockSupport.parkNanos(ERROR_SLEEP_NANOS);
             }
+        }
+        if (Thread.currentThread().isInterrupted()) {
+            Thread.currentThread().interrupt();
         }
         log.info("OutboxPoller has been stopped.");
     }
-    
-    private void handleSuccess(TransactionCommand command) {
-        log.debug("Transaction {} published successfully. Marking as processed.", command.getTransactionId());
-        outboxRepository.markAsProcessed(command);
-    }
 
-    void handleFailure(TransactionCommand command, Throwable ex) {
-        try {
-            Throwable cause = (ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null) ? ex.getCause() : ex;
-
-            log.warn("Processing failed for transaction {}", command.getTransactionId(), cause);
-            outboxRepository.incrementFailureCount(command.getTransactionId());
-            int failures = outboxRepository.getFailureCount(command.getTransactionId());
-
-            if (failures >= MAX_FAILURES) {
-                log.error("Transaction {} failed {} times. Moving to DLQ.", command.getTransactionId(), failures);
-                outboxRepository.moveToDlq(command, cause.getMessage());
-            }
-        } catch (Exception e) {
-            log.error("CRITICAL: Unhandled exception in handleFailure for transaction {}", command.getTransactionId(), e);
-        }
-    }
     public void stop() {
+        log.info("Stopping OutboxPoller...");
         this.running = false;
     }
 }

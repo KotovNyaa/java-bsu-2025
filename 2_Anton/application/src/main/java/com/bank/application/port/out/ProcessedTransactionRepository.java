@@ -1,5 +1,6 @@
 package com.bank.application.port.out;
 
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -8,5 +9,8 @@ import java.util.UUID;
 
 public interface ProcessedTransactionRepository {
 
+    @Deprecated
     boolean isProcessedAndMark(UUID transactionId);
+
+    Set<UUID> loadAllProcessedKeys();
 }

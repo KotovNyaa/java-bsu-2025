@@ -1,8 +1,8 @@
 package com.bank.core.engine.consumers;
 
 import com.bank.core.engine.TransactionEvent;
+import com.bank.core.port.out.JournalingService;
 import com.lmax.disruptor.EventHandler;
-// import com.bank.persistence.JournalingService;
 
 /**
  * Обработчик, выполняющий запись транзакции в WAL
@@ -10,23 +10,16 @@ import com.lmax.disruptor.EventHandler;
 
 public class JournalingConsumer implements EventHandler<TransactionEvent> {
 
-    // private final JournalingService journalingService;
+    private final JournalingService journalingService;
 
-    // public JournalingConsumer(JournalingService journalingService) {
-    // this.journalingService = journalingService;
-    // }
-
-    public JournalingConsumer() {
+    public JournalingConsumer(JournalingService journalingService) {
+        this.journalingService = journalingService;
     }
 
     @Override
     public void onEvent(TransactionEvent event, long sequence, boolean endOfBatch) throws Exception {
-        if (!event.shouldProcess()) {
-            return;
+        if (event.shouldProcess() && event.getBusinessException() == null) {
+            journalingService.log(event.getCommand());
         }
-
-        // journalingService.log(event.getCommand());
-        // System.out.println("Journaled command: " +
-        // event.getCommand().getTransactionId());
     }
 }

@@ -3,7 +3,7 @@ package com.bank.core.port.out;
 import com.bank.core.command.TransactionCommand;
 
 /**
- * шаблон для WAL
+ * порт для WAL
  */
 
 public interface JournalingService {

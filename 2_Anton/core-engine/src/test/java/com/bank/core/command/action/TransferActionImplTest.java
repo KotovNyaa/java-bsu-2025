@@ -1,21 +1,22 @@
 package com.bank.core.command.action;
 
-import com.bank.domain.AccountStatus;
-import org.junit.jupiter.api.DisplayName;
 import com.bank.core.command.TransactionCommand;
-import com.bank.domain.Account;
 import com.bank.core.exception.InsufficientFundsException;
+import com.bank.domain.Account;
+import com.bank.domain.AccountStatus;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+
 import java.math.BigDecimal;
 import java.util.UUID;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class TransferActionImplTest {
 
     @Mock
@@ -26,16 +27,29 @@ class TransferActionImplTest {
     @InjectMocks
     private TransferActionImpl transferAction;
 
+    private AutoCloseable closeable;
+
+    @BeforeEach
+    void setUp() {
+        closeable = MockitoAnnotations.openMocks(this);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        closeable.close();
+    }
+
     @Test
     void execute_shouldWithdrawAndDepositOnSuccessfulTransfer() throws InsufficientFundsException {
-        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("100"));
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), new BigDecimal("100"));
         when(sourceAccount.getBalance()).thenReturn(new BigDecimal("200"));
-        
+
         when(sourceAccount.getId()).thenReturn(UUID.randomUUID());
         when(targetAccount.getId()).thenReturn(UUID.randomUUID());
         when(sourceAccount.getStatus()).thenReturn(AccountStatus.ACTIVE);
         when(targetAccount.getStatus()).thenReturn(AccountStatus.ACTIVE);
-        
+
         transferAction.execute(sourceAccount, targetAccount, command);
 
         verify(sourceAccount).withdraw(new BigDecimal("100"));
@@ -44,14 +58,15 @@ class TransferActionImplTest {
 
     @Test
     void execute_shouldBeAtomicAndThrowExceptionOnInsufficientFunds() {
-        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("300"));
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), new BigDecimal("300"));
         when(sourceAccount.getBalance()).thenReturn(new BigDecimal("200"));
 
         when(sourceAccount.getId()).thenReturn(UUID.randomUUID());
         when(targetAccount.getId()).thenReturn(UUID.randomUUID());
         when(sourceAccount.getStatus()).thenReturn(AccountStatus.ACTIVE);
         when(targetAccount.getStatus()).thenReturn(AccountStatus.ACTIVE);
-        
+
         assertThrows(InsufficientFundsException.class, () -> {
             transferAction.execute(sourceAccount, targetAccount, command);
         });
@@ -65,8 +80,7 @@ class TransferActionImplTest {
         UUID fromAccountId = UUID.randomUUID();
         UUID toAccountId = UUID.randomUUID();
         TransactionCommand command = TransactionCommand.createTransferCommand(
-            UUID.randomUUID(), fromAccountId, toAccountId, new BigDecimal("200")
-        );
+                UUID.randomUUID(), fromAccountId, toAccountId, new BigDecimal("200"));
 
         when(sourceAccount.getStatus()).thenReturn(AccountStatus.FROZEN);
 
@@ -74,10 +88,9 @@ class TransferActionImplTest {
         when(targetAccount.getId()).thenReturn(UUID.randomUUID());
 
         assertThrows(
-            IllegalStateException.class,
-            () -> transferAction.execute(sourceAccount, targetAccount, command),
-            "Должно быть выброшено исключение при переводе с замороженного счета"
-        );
+                IllegalStateException.class,
+                () -> transferAction.execute(sourceAccount, targetAccount, command),
+                "Должно быть выброшено исключение при переводе с замороженного счета");
 
         verify(sourceAccount, never()).withdraw(any(BigDecimal.class));
         verify(targetAccount, never()).deposit(any(BigDecimal.class));
@@ -87,15 +100,13 @@ class TransferActionImplTest {
     void should_throw_illegal_argument_exception_for_transfer_to_same_account() {
         UUID sameAccountId = UUID.randomUUID();
         TransactionCommand command = TransactionCommand.createTransferCommand(
-            UUID.randomUUID(), sameAccountId, sameAccountId, new BigDecimal("100")
-        );
-        
+                UUID.randomUUID(), sameAccountId, sameAccountId, new BigDecimal("100"));
+
         when(sourceAccount.getId()).thenReturn(sameAccountId);
-        
+
         assertThrows(
-            IllegalArgumentException.class,
-            () -> transferAction.execute(sourceAccount, sourceAccount, command),
-            "Счет-отправитель и счет-получатель не могут совпадать"
-        );
+                IllegalArgumentException.class,
+                () -> transferAction.execute(sourceAccount, sourceAccount, command),
+                "Счет-отправитель и счет-получатель не могут совпадать");
     }
 }

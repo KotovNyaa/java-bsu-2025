@@ -1,5 +1,8 @@
 package com.bank.core.command;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -17,15 +20,27 @@ public final class TransactionCommand {
     private final BigDecimal amount;
     private final long timestamp;
 
-    public TransactionCommand(UUID transactionId, UUID idempotencyKey, UUID accountId, ActionType actionType,
-            BigDecimal amount, UUID targetAccountId) {
+    @JsonCreator
+    private TransactionCommand(
+            @JsonProperty("transactionId") UUID transactionId,
+            @JsonProperty("idempotencyKey") UUID idempotencyKey,
+            @JsonProperty("accountId") UUID accountId,
+            @JsonProperty("targetAccountId") UUID targetAccountId,
+            @JsonProperty("actionType") ActionType actionType,
+            @JsonProperty("amount") BigDecimal amount,
+            @JsonProperty("timestamp") long timestamp) {
         this.transactionId = transactionId;
         this.idempotencyKey = idempotencyKey;
         this.accountId = accountId;
+        this.targetAccountId = targetAccountId;
         this.actionType = actionType;
         this.amount = amount;
-        this.targetAccountId = targetAccountId;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
+    }
+
+    public TransactionCommand(UUID transactionId, UUID idempotencyKey, UUID accountId, ActionType actionType,
+            BigDecimal amount, UUID targetAccountId) {
+        this(transactionId, idempotencyKey, accountId, targetAccountId, actionType, amount, System.currentTimeMillis());
     }
 
     public static TransactionCommand createDepositCommand(UUID idempotencyKey, UUID accountId, BigDecimal amount) {

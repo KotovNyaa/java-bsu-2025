@@ -1,114 +1,98 @@
 package com.bank.persistence.integration;
 
-import com.bank.core.command.ActionType;
 import com.bank.core.command.TransactionCommand;
 import com.bank.domain.Account;
 import com.bank.persistence.repository.impl.JdbcAccountRepository;
 import com.bank.persistence.repository.impl.JdbcJournalRepository;
-import org.h2.jdbcx.JdbcDataSource;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
-import java.io.FileReader;
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CorePersistenceIntegrationTest {
 
-    private JdbcDataSource dataSource;
+    private EmbeddedDatabase dataSource;
+    private JdbcTemplate jdbcTemplate;
     private JdbcAccountRepository accountRepository;
     private JdbcJournalRepository journalRepository;
 
-    @BeforeEach
-    void setUp() throws Exception {
-        dataSource = new JdbcDataSource();
-        dataSource.setURL("jdbc:h2:mem:integrationdb;DB_CLOSE_DELAY=-1");
-        dataSource.setUser("sa");
-        dataSource.setPassword("sa");
+    @BeforeAll
+    void setupDatabase() {
+        this.dataSource = new EmbeddedDatabaseBuilder()
+                .setType(EmbeddedDatabaseType.H2)
+                .setName("integrationdb_test;MODE=PostgreSQL;DATABASE_TO_UPPER=false")
+                .addScript("classpath:schema.sql")
+                .build();
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.accountRepository = new JdbcAccountRepository(dataSource);
+        this.journalRepository = new JdbcJournalRepository(dataSource);
+    }
 
-        try (Connection conn = dataSource.getConnection()) {
-            java.net.URL resource = getClass().getClassLoader().getResource("schema.sql");
-            if (resource == null) throw new IllegalStateException("Cannot find schema.sql");
-            org.h2.tools.RunScript.execute(conn, new FileReader(resource.getFile()));
+    @AfterAll
+    void shutdownDatabase() {
+        if (this.dataSource != null) {
+            this.dataSource.shutdown();
         }
+    }
 
-        accountRepository = new JdbcAccountRepository(dataSource);
-        journalRepository = new JdbcJournalRepository(dataSource);
+    @BeforeEach
+    void cleanTables() {
+        jdbcTemplate.execute("TRUNCATE TABLE \"accounts\"");
+        jdbcTemplate.execute("TRUNCATE TABLE \"transaction_journal\"");
     }
 
     @Test
-    void should_correctly_restore_state_from_journal_after_simulated_crash() throws Exception {
+    void should_correctly_restore_state_from_journal_after_simulated_crash() {
         UUID accountId1 = UUID.randomUUID();
         UUID accountId2 = UUID.randomUUID();
-        Map<UUID, Account> initialState = new HashMap<>();
-        initialState.put(accountId1, new Account(accountId1, new BigDecimal("1000")));
-        initialState.put(accountId2, new Account(accountId2, new BigDecimal("500")));
 
-        try (Connection conn = dataSource.getConnection()) {
-            String sql = "INSERT INTO accounts (id, balance, status) VALUES (?, ?, 'ACTIVE')";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setObject(1, accountId1);
-                stmt.setBigDecimal(2, new BigDecimal("1000"));
-                stmt.executeUpdate();
-                
-                stmt.setObject(1, accountId2);
-                stmt.setBigDecimal(2, new BigDecimal("500"));
-                stmt.executeUpdate();
-            }
-        }
+        jdbcTemplate.update("INSERT INTO \"accounts\" (\"id\", \"balance\", \"status\") VALUES (?, ?, 'ACTIVE')",
+                accountId1, new BigDecimal("1000"));
+        jdbcTemplate.update("INSERT INTO \"accounts\" (\"id\", \"balance\", \"status\") VALUES (?, ?, 'ACTIVE')",
+                accountId2, new BigDecimal("500"));
 
-        TransactionCommand deposit = TransactionCommand.createDepositCommand(UUID.randomUUID(),accountId1, new BigDecimal("200"));
-        TransactionCommand withdraw = TransactionCommand.createWithdrawCommand(UUID.randomUUID(),accountId2, new BigDecimal("100"));
-        TransactionCommand transfer = TransactionCommand.createTransferCommand(UUID.randomUUID(),accountId1, accountId2, new BigDecimal("300"));
-        
+        TransactionCommand deposit = TransactionCommand.createDepositCommand(UUID.randomUUID(), accountId1,
+                new BigDecimal("200"));
+        TransactionCommand withdraw = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), accountId2,
+                new BigDecimal("100"));
+        TransactionCommand transfer = TransactionCommand.createTransferCommand(UUID.randomUUID(), accountId1,
+                accountId2, new BigDecimal("300"));
+
         journalRepository.log(deposit);
         journalRepository.log(withdraw);
         journalRepository.log(transfer);
 
         Map<UUID, Account> recoveredState = accountRepository.loadAllAccounts();
-        assertNotNull(recoveredState);
-        assertEquals(2, recoveredState.size());
-        assertEquals(0, new BigDecimal("1000").compareTo(recoveredState.get(accountId1).getBalance()));
-        
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM transaction_journal ORDER BY sequence_id ASC")) {
-            
-            while(rs.next()) {
-                ActionType type = ActionType.valueOf(rs.getString("command_type"));
-                UUID fromId = rs.getObject("account_id_from", UUID.class);
-                UUID toId = rs.getObject("account_id_to", UUID.class);
-                BigDecimal amount = rs.getBigDecimal("amount");
 
-                Account sourceAccount = recoveredState.get(fromId);
-                
-                switch (type) {
-                    case DEPOSIT:
-                        sourceAccount.deposit(amount);
-                        break;
-                    case WITHDRAW:
-                        sourceAccount.withdraw(amount);
-                        break;
-                    case TRANSFER:
-                        Account targetAccount = recoveredState.get(toId);
-                        sourceAccount.withdraw(amount);
-                        targetAccount.deposit(amount);
-                        break;
-                }
+        List<TransactionCommand> journalEntries = journalRepository.loadAllJournalEntries();
+
+        for (TransactionCommand command : journalEntries) {
+            Account sourceAccount = recoveredState.get(command.getAccountId());
+            switch (command.getActionType()) {
+                case DEPOSIT:
+                    sourceAccount.deposit(command.getAmount());
+                    break;
+                case WITHDRAW:
+                    sourceAccount.withdraw(command.getAmount());
+                    break;
+                case TRANSFER:
+                    Account targetAccount = recoveredState.get(command.getTargetAccountId());
+                    sourceAccount.withdraw(command.getAmount());
+                    targetAccount.deposit(command.getAmount());
+                    break;
             }
         }
 
-        assertEquals(0, new BigDecimal("900").compareTo(recoveredState.get(accountId1).getBalance()), "Balance of account 1 is incorrect after recovery");
-        assertEquals(0, new BigDecimal("700").compareTo(recoveredState.get(accountId2).getBalance()), "Balance of account 2 is incorrect after recovery");
+        assertThat(recoveredState.get(accountId1).getBalance()).isEqualByComparingTo("900");
+        assertThat(recoveredState.get(accountId2).getBalance()).isEqualByComparingTo("700");
     }
 }

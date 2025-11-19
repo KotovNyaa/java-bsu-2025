@@ -10,40 +10,59 @@ import com.bank.core.engine.TransactionEvent;
 import com.bank.core.exception.InsufficientFundsException;
 import com.bank.core.state.AccountStateProvider;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@ExtendWith(MockitoExtension.class)
 class BusinessLogicConsumerTest {
 
-    @Mock private AccountStateProvider accountState;
-    @Mock private TransactionActionFactory actionFactory;
-    @Mock private SingleAccountAction singleAccountAction;
-    @Mock private TransferAction transferAction;
-    @Mock private Account account;
-    @Mock private Account sourceAccount;
-    @Mock private Account targetAccount;
-    
-    @InjectMocks private BusinessLogicConsumer consumer;
+    @Mock
+    private AccountStateProvider accountState;
+    @Mock
+    private TransactionActionFactory actionFactory;
+    @Mock
+    private SingleAccountAction singleAccountAction;
+    @Mock
+    private TransferAction transferAction;
+    @Mock
+    private Account account;
+    @Mock
+    private Account sourceAccount;
+    @Mock
+    private Account targetAccount;
+
+    @InjectMocks
+    private BusinessLogicConsumer consumer;
 
     private TransactionEvent event;
+    private AutoCloseable closeable;
 
     @BeforeEach
     void setUp() {
+        closeable = MockitoAnnotations.openMocks(this);
         event = new TransactionEvent();
+
+        event.setShouldProcess(true);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        closeable.close();
     }
 
     @Test
     void onEvent_shouldUseSingleAccountActionForDeposit() throws Exception {
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(),
+                BigDecimal.TEN);
         event.setCommand(command);
 
         when(actionFactory.getSingleAccountAction(ActionType.DEPOSIT)).thenReturn(singleAccountAction);
@@ -60,7 +79,8 @@ class BusinessLogicConsumerTest {
     void onEvent_shouldUseTransferActionForTransfer() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
-        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), sourceId, targetId, BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createTransferCommand(UUID.randomUUID(), sourceId, targetId,
+                BigDecimal.TEN);
         event.setCommand(command);
 
         when(actionFactory.getTransferAction()).thenReturn(transferAction);
@@ -76,7 +96,8 @@ class BusinessLogicConsumerTest {
 
     @Test
     void onEvent_shouldNotThrowRuntimeExceptionOnBusinessException() throws Exception {
-        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
+        TransactionCommand command = TransactionCommand.createWithdrawCommand(UUID.randomUUID(), UUID.randomUUID(),
+                BigDecimal.TEN);
         event.setCommand(command);
 
         when(actionFactory.getSingleAccountAction(any())).thenReturn(singleAccountAction);
@@ -87,14 +108,21 @@ class BusinessLogicConsumerTest {
     }
 
     @Test
-    void onEvent_shouldThrowRuntimeExceptionOnUnexpectedError() throws Exception {
-        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(), BigDecimal.TEN);
+    void onEvent_shouldSetExceptionInEvent_onUnexpectedError() throws Exception {
+        TransactionCommand command = TransactionCommand.createDepositCommand(UUID.randomUUID(), UUID.randomUUID(),
+                BigDecimal.TEN);
         event.setCommand(command);
-        
+
+        NullPointerException simulatedCrash = new NullPointerException("system crash");
         when(actionFactory.getSingleAccountAction(any())).thenReturn(singleAccountAction);
         when(accountState.getAccount(any())).thenReturn(account);
-        doThrow(new NullPointerException("system crash")).when(singleAccountAction).execute(any(), any());
+        doThrow(simulatedCrash).when(singleAccountAction).execute(any(), any());
 
-        assertThrows(RuntimeException.class, () -> consumer.onEvent(event, 1, true));
+        assertDoesNotThrow(() -> consumer.onEvent(event, 1, true));
+
+        assertThat(event.getBusinessException())
+                .isNotNull()
+                .isInstanceOf(NullPointerException.class)
+                .isEqualTo(simulatedCrash);
     }
 }

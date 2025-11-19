@@ -30,12 +30,12 @@ public final class JdbcAccountRepository implements AccountRepository {
 
     @Override
     public Map<UUID, Account> loadAllAccounts() {
-        final String sql = "SELECT id, balance, status FROM accounts";
+        final String sql = "SELECT \"id\", \"balance\", \"status\" FROM \"accounts\"";
         Map<UUID, Account> accounts = new HashMap<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 Account account = accountMapper.mapRow(rs);

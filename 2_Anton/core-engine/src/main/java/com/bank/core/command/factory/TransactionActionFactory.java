@@ -20,7 +20,9 @@ public class TransactionActionFactory {
         this.singleAccountActionMap.put(ActionType.DEPOSIT, new DepositAction());
         this.singleAccountActionMap.put(ActionType.WITHDRAW, new WithdrawAction());
         this.singleAccountActionMap.put(ActionType.FREEZE, new FreezeAction());
-        
+        this.singleAccountActionMap.put(ActionType.UNFREEZE, new UnfreezeAction());
+        this.singleAccountActionMap.put(ActionType.CLOSE, new CloseAction());
+
         this.transferAction = new TransferActionImpl();
     }
 

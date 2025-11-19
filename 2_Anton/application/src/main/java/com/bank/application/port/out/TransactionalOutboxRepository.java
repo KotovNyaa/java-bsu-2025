@@ -21,4 +21,6 @@ public interface TransactionalOutboxRepository {
     int getFailureCount(UUID transactionId);
 
     void incrementFailureCount(UUID transactionId);
+
+    void resetProcessingToPending(); 
 }
