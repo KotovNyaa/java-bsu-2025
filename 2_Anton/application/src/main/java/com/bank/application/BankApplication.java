@@ -72,7 +72,7 @@ public class BankApplication {
         BatchDatabasePersistenceConsumer persistenceConsumer = new BatchDatabasePersistenceConsumer(batchPersister);
 
         this.ringBuffer = new TransactionRingBuffer(
-                new YieldingWaitStrategy(),
+                new com.lmax.disruptor.SleepingWaitStrategy(),
                 null,
                 null,
                 null);
