@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Higher Lower</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="logo">Anime<span class="accent-text">Guess</span></div>
+        
+        <div class="stats-group">
+            <div class="stat-item">
+                <span class="label">Difficulty</span>
+                <select id="difficulty-select" class="cat-select">
+                    <option value="easy">Easy</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="extreme">Extreme</option>
+                    <option value="impossible">Impossible</option>
+                </select>
+            </div>
+            <div class="stat-item">
+                <span class="label">Streak</span>
+                <span id="current-streak" class="value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Best</span>
+                <span id="best-streak" class="value">0</span>
+            </div>
+        </div>
+
+        <button class="btn-help" onclick="openModal('how-to-play')">How to Play</button>
+    </nav>
+
+    <div class="game-area">
+        
+        <div class="card card-left" onclick="handleGuess('left')">
+            <div class="card-header">
+                <h2 id="title-left">Loading...</h2>
+            </div>
+            <div class="card-image">
+                <img id="img-left" src="" alt="Anime Left">
+                <div class="gradient-overlay"></div>
+            </div>
+            <div class="card-footer">
+                <div class="stats-box">
+                    <span id="members-left" class="count-number">0</span>
+                    <span class="count-label">Members</span>
+                </div>
+                <button class="btn-choose">Tap to Select</button>
+            </div>
+        </div>
+
+        <div class="vs-badge">VS</div>
+
+        <div class="card card-right" onclick="handleGuess('right')">
+            <div class="card-header">
+                <h2 id="title-right">Loading...</h2>
+            </div>
+            <div class="card-image">
+                <img id="img-right" src="" alt="Anime Right">
+                <div class="gradient-overlay"></div>
+            </div>
+            <div class="card-footer">
+                <div id="right-stats-container" class="stats-box">
+                    <span id="members-right" class="question-mark">?</span>
+                    <span id="label-right" class="count-label" style="display: none;">Members</span>
+                </div>
+                <button class="btn-choose">Tap to Select</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="modal-game-over" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-red">Game Over!</h2>
+            <p>Incorrect choice.</p>
+            <div class="modal-stats">
+                <div>Score: <span id="final-score">0</span></div>
+                <div>Best: <span id="final-best">0</span></div>
+            </div>
+            <button class="btn-restart" onclick="restartGame()">Try Again</button>
+        </div>
+    </div>
+
+    <div id="modal-how-to-play" class="modal-overlay">
+        <div class="modal-content">
+            <h2>How to Play</h2>
+            <p>Guess which anime has <strong>more members</strong> on MyAnimeList.</p>
+            <p>Tap on the card you think is more popular.</p>
+            <button class="btn-restart" onclick="closeModal('how-to-play')">Close</button>
+        </div>
+    </div>
+
+    <div id="notification-area" class="notification">Correct!</div>
+
+    <script src="game.js"></script>
+</body>
+</html>
